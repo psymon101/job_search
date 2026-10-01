@@ -274,12 +274,25 @@ class JobStorage:
             params.append(posted_in_last_days)
 
         if query:
-            conditions.append(
-                "MATCH(title, company, description, tags, location) AGAINST(%s IN BOOLEAN MODE)"
-            )
-            terms = query.strip().split()
-            boolean_query = " ".join(f"+{t}*" for t in terms if t)
-            params.append(boolean_query)
+            import re
+
+            phrases = [
+                part.strip().strip('"').strip()
+                for part in re.split(r",|\bOR\b", query, flags=re.IGNORECASE)
+            ]
+            phrases = list(dict.fromkeys(
+                phrase.lower() for phrase in phrases if phrase
+            ))
+
+            if phrases:
+                title_clauses = [
+                    "LOCATE(%s, LOWER(COALESCE(j.title, ''))) > 0"
+                    for phrase in phrases
+                ]
+                conditions.append("(" + " OR ".join(title_clauses) + ")")
+                params.extend(phrases)
+            else:
+                conditions.append("1 = 0")
 
         if source:
             conditions.append("source = %s")
