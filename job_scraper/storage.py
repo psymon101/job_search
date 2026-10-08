@@ -291,11 +291,16 @@ class JobStorage:
 
             if phrases:
                 title_clauses = [
-                    "LOCATE(%s, LOWER(COALESCE(j.title, ''))) > 0"
+                    "REGEXP_LIKE(COALESCE(j.title, ''), %s, 'i')"
                     for phrase in phrases
                 ]
                 conditions.append("(" + " OR ".join(title_clauses) + ")")
-                params.extend(phrases)
+                params.extend(
+                    r"(^|[^[:alnum:]])"
+                    + re.escape(phrase)
+                    + r"([^[:alnum:]]|$)"
+                    for phrase in phrases
+                )
             else:
                 conditions.append("1 = 0")
 
